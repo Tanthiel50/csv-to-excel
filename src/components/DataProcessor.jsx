@@ -4,15 +4,17 @@ import Papa from "papaparse";
 import { saveAs } from "file-saver";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "./DataProcessor.css"; 
 
 function DataProcessor() {
   const [csvData, setCsvData] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
 
+  // Colonnes attendues dans le CSV
   const expectedHeaders = ["Date & Heure", "Email porteur", "Montant"];
 
-  // Lecture et analyse du CSV
+  // Lecture et validation du fichier CSV
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
 
@@ -36,8 +38,6 @@ function DataProcessor() {
       skipEmptyLines: true,
       complete: (results) => {
         const rawData = results.data;
-
-        // Vérifier les colonnes attendues
         const fileHeaders = Object.keys(rawData[0]);
         const missingHeaders = expectedHeaders.filter(
           (header) => !fileHeaders.includes(header)
@@ -50,7 +50,6 @@ function DataProcessor() {
           return;
         }
 
-        // Extraire les dates uniques
         const dates = [
           ...new Set(
             rawData.map((row) => row["Date & Heure"].split(" ")[0])
@@ -67,7 +66,7 @@ function DataProcessor() {
     });
   };
 
-  // Génération du fichier Excel (inchangée)
+  // Génération du fichier Excel
   const generateExcel = async () => {
     if (!csvData || !selectedDate) {
       toast.error("Aucune donnée ou date sélectionnée.");
@@ -77,6 +76,11 @@ function DataProcessor() {
     const filteredData = csvData.filter((row) =>
       row["Date & Heure"].startsWith(selectedDate)
     );
+
+    if (filteredData.length === 0) {
+      toast.error("Aucune donnée trouvée pour la date sélectionnée.");
+      return;
+    }
 
     const transformedData = filteredData.map((row) => {
       const values = Object.values(row);
@@ -97,10 +101,7 @@ function DataProcessor() {
         nature = "Voyage, remplacement carte, divers...";
       } else if (referenceCommande.startsWith("reinsc_")) {
         nature = "Inscription ADM";
-      } else if (
-        !referenceCommande.includes("-") &&
-        !referenceCommande.includes("_")
-      ) {
+      } else if (!referenceCommande.includes("-") && !referenceCommande.includes("_")) {
         nature = "ensa app";
       } else {
         nature = "Inconnu";
@@ -131,7 +132,6 @@ function DataProcessor() {
       const total = rows.reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
 
       const worksheet = workbook.addWorksheet(nature);
-
       worksheet.mergeCells("A1:C1");
       worksheet.getCell("A1").value = `Transactions pour la nature "${nature}" - Date : ${selectedDate}`;
       worksheet.getCell("A1").font = { bold: true, size: 14 };
@@ -147,7 +147,6 @@ function DataProcessor() {
       };
 
       rows.forEach((row) => worksheet.addRow(row));
-
       worksheet.addRow(["", "Total", total.toFixed(2)]);
       const totalRow = worksheet.getRow(worksheet.rowCount);
       totalRow.font = { bold: true };
@@ -155,55 +154,63 @@ function DataProcessor() {
       worksheet.columns = [
         { key: "date", width: 30 },
         { key: "mail", width: 30 },
-        { key: "montant", width: 30 },
+        { key: "montant", width: 15 },
       ];
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/octet-stream" });
     saveAs(blob, `Transactions_${selectedDate}.xlsx`);
+
     toast.success("Fichier Excel généré avec succès !");
   };
 
   return (
-    <div>
-      <h2>Traitement des fichiers CSV</h2>
-      <input type="file" accept=".csv" onChange={handleFileUpload} />
-      {availableDates.length > 0 && (
-        <div>
-          <label>
-            Sélectionnez une date :
-            <select
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+    <div className="data-processor">
+      <header style={{ background: "#51E36E", color: "black" }}>
+        <h1>Traitement des fichiers CSV</h1>
+      </header>
+      <main className="content">
+        <div className="card">
+          <h2>Importer et traiter vos fichiers</h2>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFileUpload}
+            className="file-input"
+          />
+          {availableDates.length > 0 && (
+            <div className="date-selector">
+              <label htmlFor="date-select">Sélectionnez une date :</label>
+              <select
+                id="date-select"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              >
+                <option value="">-- Choisir une date --</option>
+                {availableDates.map((date) => (
+                  <option key={date} value={date}>
+                    {date}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {csvData && selectedDate && (
+            <button
+              className="generate-btn"
+              onClick={generateExcel}
+              style={{ background: "#51E36E", color: "black" }}
             >
-              <option value="">-- Choisir une date --</option>
-              {availableDates.map((date) => (
-                <option key={date} value={date}>
-                  {date}
-                </option>
-              ))}
-            </select>
-          </label>
+              Exporter les données filtrées
+            </button>
+          )}
         </div>
-      )}
-      {csvData && selectedDate && (
-        <div>
-          <button onClick={generateExcel}>Exporter les données filtrées</button>
-          <p>Données prêtes à être exportées.</p>
-        </div>
-      )}
-      <ToastContainer
-        position="bottom-left"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
+      </main>
+      <footer>
+        <p>&copy; ENSA Nantes</p>
+      </footer>
+      <ToastContainer />
     </div>
   );
 }
