@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import CsvUploader from "./components/CsvUploader";
 import DataProcessor from "./components/DataProcessor";
+import "react-toastify/dist/ReactToastify.css";
+
 
 function App() {
   const [csvData, setCsvData] = useState(null);
