@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import Papa from "papaparse";
+import { saveAs } from "file-saver";
 
 function DataProcessor() {
   const [csvData, setCsvData] = useState(null);
@@ -33,7 +34,7 @@ function DataProcessor() {
   };
 
   // Génération du fichier Excel
-  const generateExcel = () => {
+  const generateExcel = async () => {
     if (!csvData || !selectedDate) {
       alert("Aucune donnée ou date sélectionnée.");
       return;
@@ -66,79 +67,107 @@ function DataProcessor() {
       } else {
         nature = "Inconnu";
       }
-
+  
       // Valider et convertir le montant
-    const montant = parseFloat(values[5]) || 0;
+      const montant = parseFloat(values[4]) || 0;
+  
+      return {
+        date: values[2] || "",
+        mail: values[12] || "",
+        nature: nature,
+        montant: montant,
+      };
+    });
+  
+    // Grouper les données par nature
+    const groupedData = transformedData.reduce((acc, row) => {
+      if (!acc[row.nature]) {
+        acc[row.nature] = [];
+      }
+      acc[row.nature].push([row.date, row.mail, row.montant]);
+      return acc;
+    }, {});
+  
+    // Créer un nouveau classeur
+    const workbook = new ExcelJS.Workbook();
+  
+    Object.keys(groupedData).forEach((nature) => {
+      const rows = groupedData[nature];
+  
+      // Calculer la somme totale des montants pour cette nature
+      const total = rows.reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
+  
+      // Créer une feuille de calcul
+      const worksheet = workbook.addWorksheet(nature);
+  
+      // Ajouter un titre
+      worksheet.mergeCells("A1:C1");
+      worksheet.getCell("A1").value = `Transactions pour la nature "${nature}" - Date : ${selectedDate}`;
+      worksheet.getCell("A1").font = { bold: true, size: 14 };
+      worksheet.getCell("A1").alignment = { horizontal: "center" };
+  
+      // Ajouter les en-têtes
+      worksheet.addRow(["Date de transaction", "Mail", "Montant"]);
+      const headerRow = worksheet.getRow(2);
+      headerRow.font = { bold: true };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFF00" }, // Jaune
+      };
+  
+      // Ajouter les données
+      rows.forEach((row) => worksheet.addRow(row));
+  
+      // Ajouter la ligne pour le total
+      worksheet.addRow(["", "Total", total.toFixed(2)]);
+      const totalRow = worksheet.getRow(worksheet.rowCount);
+      totalRow.font = { bold: true };
+  
+      // Ajuster la largeur des colonnes
+      worksheet.columns = [
+        { key: "date", width: 30 }, // Colonne A (Date de transaction)
+        { key: "mail", width: 30 }, // Colonne B (Mail)
+        { key: "montant", width: 30 }, // Colonne C (Montant)
+      ];
+    });
+  
+    // Générer et télécharger le fichier Excel
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    saveAs(blob, `Transactions_${selectedDate}.xlsx`);
+  };
 
-    return {
-      date: values[2] || "",
-      mail: values[12] || "",
-      nature: nature,
-      montant: values[4] || "",
-    };
-  });
-
- // Grouper les données par nature
- const groupedData = transformedData.reduce((acc, row) => {
-  if (!acc[row.nature]) {
-    acc[row.nature] = [];
-  }
-  acc[row.nature].push([row.date, row.mail, row.montant]);
-  return acc;
-}, {});
-
-// Générer un fichier Excel avec une feuille par nature
-const workbook = XLSX.utils.book_new();
-
-Object.keys(groupedData).forEach((nature) => {
-  const rows = groupedData[nature];
-
-  // Calculer la somme totale des montants pour cette nature
-  const total = rows.reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
-
-  // Ajouter la ligne pour le total
-  rows.push(["", "Total", total.toFixed(2)]);
-
-  // Ajouter les données à la feuille Excel
-  const worksheetData = [["Date de transaction", "Mail", "Montant"], ...rows];
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-  XLSX.utils.book_append_sheet(workbook, worksheet, nature);
-});
-
-// Télécharger l'Excel
-XLSX.writeFile(workbook, `Transactions_${selectedDate}.xlsx`);
-};
-
-return (
-  <div>
-    <h2>Traitement des fichiers CSV</h2>
-    <input type="file" accept=".csv" onChange={handleFileUpload} />
-    {availableDates.length > 0 && (
-      <div>
-        <label>
-          Sélectionnez une date :
-          <select
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          >
-            <option value="">-- Choisir une date --</option>
-            {availableDates.map((date) => (
-              <option key={date} value={date}>
-                {date}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-    )}
-    {csvData && selectedDate && (
-      <div>
-        <button onClick={generateExcel}>Exporter les données filtrées</button>
-        <p>Données prêtes à être exportées.</p>
-      </div>
-    )}
-  </div>
-);
+  return (
+    <div>
+      <h2>Traitement des fichiers CSV</h2>
+      <input type="file" accept=".csv" onChange={handleFileUpload} />
+      {availableDates.length > 0 && (
+        <div>
+          <label>
+            Sélectionnez une date :
+            <select
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            >
+              <option value="">-- Choisir une date --</option>
+              {availableDates.map((date) => (
+                <option key={date} value={date}>
+                  {date}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      {csvData && selectedDate && (
+        <div>
+          <button onClick={generateExcel}>Exporter les données filtrées</button>
+          <p>Données prêtes à être exportées.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default DataProcessor;
