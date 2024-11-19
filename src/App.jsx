@@ -6,8 +6,7 @@ function App() {
   const [csvData, setCsvData] = useState(null);
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h1>Application de traitement CSV</h1>
+    <div>
       <DataProcessor />
     </div>
   );

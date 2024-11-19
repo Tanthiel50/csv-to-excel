@@ -1,0 +1,84 @@
+/* Styles généraux */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+  }
+  
+  /* Conteneur principal */
+  .data-processor {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  /* Header */
+  header {
+    background-color: #007bff;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  header h1 {
+    margin: 0;
+    font-size: 2rem;
+  }
+  
+  /* Contenu principal */
+  .content {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+  }
+  
+  .card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+  }
+  
+  /* Boutons et entrées */
+  .file-input {
+    margin: 1rem 0;
+  }
+  
+  .date-selector {
+    margin: 1rem 0;
+  }
+  
+  .date-selector label {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  
+  .generate-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .generate-btn:hover {
+    background-color: #0056b3;
+  }
+  
+  /* Pied de page */
+  footer {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    text-align: center;
+    padding: 1rem;
+  }
+  
