@@ -162,6 +162,16 @@ const normalizeString = (str) => {
       };
     });
   
+    // Trier les données par nom de famille (ordre alphabétique)
+    transformedData.sort((a, b) => {
+      const nameA = a.nom.toLowerCase();
+      const nameB = b.nom.toLowerCase();
+  
+      if (nameA < nameB) return -1; // Si `nameA` vient avant `nameB`
+      if (nameA > nameB) return 1; // Si `nameA` vient après `nameB`
+      return 0; // Si les noms sont identiques
+    });
+  
     const groupedData = transformedData.reduce((acc, row) => {
       if (!acc[row.nature]) {
         acc[row.nature] = [];
