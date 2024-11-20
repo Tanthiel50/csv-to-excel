@@ -91,17 +91,22 @@ const normalizeString = (str) => {
       return;
     }
   
+    // Filtrage des données : exclure les lignes avec "Numéro remise banque" = '-' 
+    // et inclure uniquement celles avec "Statut de la transaction" = "Accepté"
     const filteredData = csvData.filter((row) => {
       const numeroRemiseBanque = row["Numéro remise banque"] || "";
       const dateHeure = row["Date & Heure"] || "";
+      const statutTransaction = row["Statut de la transaction"] || "";
+  
       return (
         numeroRemiseBanque !== "-" && // Exclure si "Numéro remise banque" est '-'
-        dateHeure.startsWith(selectedDate) // Inclure uniquement les dates sélectionnées
+        dateHeure.startsWith(selectedDate) && // Inclure uniquement les dates sélectionnées
+        statutTransaction.toLowerCase() === "accepte" // Inclure uniquement les lignes avec "Accepté"
       );
     });
   
     if (filteredData.length === 0) {
-      toast.error("Aucune donnée trouvée pour la date sélectionnée.");
+      toast.error("Aucune donnée trouvée avec le statut 'Accepté' pour la date sélectionnée.");
       return;
     }
   
