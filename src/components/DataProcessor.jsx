@@ -14,48 +14,66 @@ function DataProcessor() {
   // Colonnes attendues dans le CSV
   const expectedHeaders = ["Date & Heure", "Email porteur", "Montant"];
 
+  // Fonction pour normaliser les chaînes (remplacer les accents et caractères spéciaux)
+const normalizeString = (str) => {
+  if (!str) return str; // Si la valeur est vide, retourner tel quel
+  return str
+    .normalize("NFD") // Décomposer les caractères accentués
+    .replace(/[\u0300-\u036f]/g, "") // Supprimer les diacritiques
+    .replace(/[\u2019\u2018]/g, "'") // Remplacer les guillemets simples typographiques
+    .replace(/[^\x20-\x7E]/g, ""); // Supprimer les caractères non ASCII
+};
+
   // Lecture et validation du fichier CSV
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
-
+  
     if (!file) {
       toast.error("Aucun fichier sélectionné.");
       return;
     }
-
+  
     if (file.type !== "text/csv") {
       toast.error("Seuls les fichiers CSV sont acceptés.");
       return;
     }
-
+  
     if (file.size > 2 * 1024 * 1024) {
       toast.error("Le fichier est trop volumineux (limite : 2 Mo).");
       return;
     }
-
+  
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const rawData = results.data;
+        const rawData = results.data.map((row) => {
+          // Normaliser toutes les colonnes de la ligne
+          const normalizedRow = {};
+          Object.keys(row).forEach((key) => {
+            normalizedRow[normalizeString(key)] = normalizeString(row[key]);
+          });
+          return normalizedRow;
+        });
+  
         const fileHeaders = Object.keys(rawData[0]);
         const missingHeaders = expectedHeaders.filter(
           (header) => !fileHeaders.includes(header)
         );
-
+  
         if (missingHeaders.length > 0) {
           toast.error(
             `Colonnes manquantes dans le CSV : ${missingHeaders.join(", ")}`
           );
           return;
         }
-
+  
         const dates = [
           ...new Set(
             rawData.map((row) => row["Date & Heure"].split(" ")[0])
           ),
         ];
-
+  
         setAvailableDates(dates);
         setCsvData(rawData);
         toast.success("Fichier CSV chargé avec succès !");
@@ -72,21 +90,28 @@ function DataProcessor() {
       toast.error("Aucune donnée ou date sélectionnée.");
       return;
     }
-
-    const filteredData = csvData.filter((row) =>
-      row["Date & Heure"].startsWith(selectedDate)
-    );
-
+  
+    const filteredData = csvData.filter((row) => {
+      const numeroRemiseBanque = row["Numéro remise banque"] || "";
+      const dateHeure = row["Date & Heure"] || "";
+      return (
+        numeroRemiseBanque !== "-" && // Exclure si "Numéro remise banque" est '-'
+        dateHeure.startsWith(selectedDate) // Inclure uniquement les dates sélectionnées
+      );
+    });
+  
     if (filteredData.length === 0) {
       toast.error("Aucune donnée trouvée pour la date sélectionnée.");
       return;
     }
-
+  
     const transformedData = filteredData.map((row) => {
       const values = Object.values(row);
       let nature = "";
-      const referenceCommande = values[3] || "";
-
+      const referenceCommande = values[3] || ""; // Colonne D (Référence commande)
+      const statutTransaction = row["Statut de la transaction"] || ""; // Colonne H
+  
+      // Définir la nature en fonction de la référence commande
       if (
         referenceCommande.includes("Parcoursup") ||
         referenceCommande.startsWith("pri_")
@@ -106,38 +131,49 @@ function DataProcessor() {
       } else {
         nature = "Inconnu";
       }
-
-      const montant = parseFloat(values[4]) || 0;
-
+  
+      const montant = parseFloat(values[4]) || 0; // Colonne E (Montant)
+  
       return {
-        date: values[2] || "",
-        mail: values[12] || "",
+        date: values[2] || "", // Colonne C (Date & Heure)
+        mail: values[12] || "", // Colonne M (Email porteur)
         nature: nature,
         montant: montant,
+        statutTransaction: statutTransaction, // Inclure le statut de la transaction
       };
     });
-
+  
     const groupedData = transformedData.reduce((acc, row) => {
       if (!acc[row.nature]) {
         acc[row.nature] = [];
       }
-      acc[row.nature].push([row.date, row.mail, row.montant]);
+      acc[row.nature].push([
+        row.date,
+        row.mail,
+        row.montant,
+        row.statutTransaction, // Inclure le statut dans les données
+      ]);
       return acc;
     }, {});
-
+  
     const workbook = new ExcelJS.Workbook();
-
+  
     Object.keys(groupedData).forEach((nature) => {
       const rows = groupedData[nature];
       const total = rows.reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
-
+  
       const worksheet = workbook.addWorksheet(nature);
-      worksheet.mergeCells("A1:C1");
+      worksheet.mergeCells("A1:D1");
       worksheet.getCell("A1").value = `Transactions pour la nature "${nature}" - Date : ${selectedDate}`;
       worksheet.getCell("A1").font = { bold: true, size: 14 };
       worksheet.getCell("A1").alignment = { horizontal: "center" };
-
-      worksheet.addRow(["Date de transaction", "Mail", "Montant"]);
+  
+      worksheet.addRow([
+        "Date de transaction",
+        "Mail",
+        "Montant",
+        "Statut de la transaction", // Ajouter le statut comme en-tête
+      ]);
       const headerRow = worksheet.getRow(2);
       headerRow.font = { bold: true };
       headerRow.fill = {
@@ -145,23 +181,24 @@ function DataProcessor() {
         pattern: "solid",
         fgColor: { argb: "FFFF00" },
       };
-
+  
       rows.forEach((row) => worksheet.addRow(row));
-      worksheet.addRow(["", "Total", total.toFixed(2)]);
+      worksheet.addRow(["", "", "Total", total.toFixed(2)]);
       const totalRow = worksheet.getRow(worksheet.rowCount);
       totalRow.font = { bold: true };
-
+  
       worksheet.columns = [
         { key: "date", width: 30 },
         { key: "mail", width: 30 },
         { key: "montant", width: 15 },
+        { key: "statutTransaction", width: 25 }, // Ajuster la largeur pour le statut
       ];
     });
-
+  
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/octet-stream" });
     saveAs(blob, `Transactions_${selectedDate}.xlsx`);
-
+  
     toast.success("Fichier Excel généré avec succès !");
   };
 
