@@ -91,7 +91,7 @@ const normalizeString = (str) => {
       return;
     }
   
-    // Filtrage des données : exclure les lignes avec "Numéro remise banque" = '-' 
+    // Filtrage des données : exclure les lignes avec "Numéro remise banque" = '-'
     // et inclure uniquement celles avec "Statut de la transaction" = "Accepté"
     const filteredData = csvData.filter((row) => {
       const numeroRemiseBanque = row["Numéro remise banque"] || "";
@@ -115,6 +115,9 @@ const normalizeString = (str) => {
       let nature = "";
       const referenceCommande = values[3] || ""; // Colonne D (Référence commande)
       const statutTransaction = row["Statut de la transaction"] || ""; // Colonne H
+      const email = row["Email porteur"] || ""; // Colonne M (Email porteur)
+      let prenom = "";
+      let nom = "";
   
       // Définir la nature en fonction de la référence commande
       if (
@@ -137,14 +140,25 @@ const normalizeString = (str) => {
         nature = "Inconnu";
       }
   
+      // Extraire prénom et nom si l'adresse e-mail contient "nantes.archi"
+      if (email.includes("nantes.archi")) {
+        const [prenomNom] = email.split("@"); // Extraire la partie avant '@'
+        const [prenomPart, nomPart] = prenomNom.split("."); // Diviser par '.'
+  
+        prenom = prenomPart || ""; // Assigner le prénom
+        nom = nomPart || ""; // Assigner le nom
+      }
+  
       const montant = parseFloat(values[4]) || 0; // Colonne E (Montant)
   
       return {
         date: values[2] || "", // Colonne C (Date & Heure)
-        mail: values[12] || "", // Colonne M (Email porteur)
+        mail: email,
         nature: nature,
         montant: montant,
         statutTransaction: statutTransaction, // Inclure le statut de la transaction
+        prenom: prenom,
+        nom: nom,
       };
     });
   
@@ -155,8 +169,10 @@ const normalizeString = (str) => {
       acc[row.nature].push([
         row.date,
         row.mail,
+        row.prenom, // Inclure le prénom
+        row.nom, // Inclure le nom
         row.montant,
-        row.statutTransaction, // Inclure le statut dans les données
+        row.statutTransaction, // Inclure le statut
       ]);
       return acc;
     }, {});
@@ -165,10 +181,10 @@ const normalizeString = (str) => {
   
     Object.keys(groupedData).forEach((nature) => {
       const rows = groupedData[nature];
-      const total = rows.reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
+      const total = rows.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
   
       const worksheet = workbook.addWorksheet(nature);
-      worksheet.mergeCells("A1:D1");
+      worksheet.mergeCells("A1:F1");
       worksheet.getCell("A1").value = `Transactions pour la nature "${nature}" - Date : ${selectedDate}`;
       worksheet.getCell("A1").font = { bold: true, size: 14 };
       worksheet.getCell("A1").alignment = { horizontal: "center" };
@@ -176,6 +192,8 @@ const normalizeString = (str) => {
       worksheet.addRow([
         "Date de transaction",
         "Mail",
+        "Prénom",
+        "Nom",
         "Montant",
         "Statut de la transaction", // Ajouter le statut comme en-tête
       ]);
@@ -188,13 +206,15 @@ const normalizeString = (str) => {
       };
   
       rows.forEach((row) => worksheet.addRow(row));
-      worksheet.addRow(["", "", "Total", total.toFixed(2)]);
+      worksheet.addRow(["", "", "", "Total", total.toFixed(2)]);
       const totalRow = worksheet.getRow(worksheet.rowCount);
       totalRow.font = { bold: true };
   
       worksheet.columns = [
         { key: "date", width: 30 },
         { key: "mail", width: 30 },
+        { key: "prenom", width: 20 }, // Ajuster la largeur pour le prénom
+        { key: "nom", width: 20 }, // Ajuster la largeur pour le nom
         { key: "montant", width: 15 },
         { key: "statutTransaction", width: 25 }, // Ajuster la largeur pour le statut
       ];
@@ -206,6 +226,7 @@ const normalizeString = (str) => {
   
     toast.success("Fichier Excel généré avec succès !");
   };
+  
 
   return (
     <div className="data-processor">
