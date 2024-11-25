@@ -10,19 +10,21 @@ function DataProcessor() {
   const [csvData, setCsvData] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Colonnes attendues dans le CSV
   const expectedHeaders = ["Date & Heure", "Email porteur", "Montant"];
 
   // Fonction pour normaliser les chaînes (remplacer les accents et caractères spéciaux)
-const normalizeString = (str) => {
-  if (!str) return str; // Si la valeur est vide, retourner tel quel
-  return str
-    .normalize("NFD") // Décomposer les caractères accentués
-    .replace(/[\u0300-\u036f]/g, "") // Supprimer les diacritiques
-    .replace(/[\u2019\u2018]/g, "'") // Remplacer les guillemets simples typographiques
-    .replace(/[^\x20-\x7E]/g, ""); // Supprimer les caractères non ASCII
-};
+  const normalizeString = (str) => {
+    if (!str) return str; // Si la valeur est vide, retourner tel quel
+    return str
+      .normalize("NFD") // Décomposer les caractères accentués
+      .replace(/[\u0300-\u036f]/g, "") // Supprimer les diacritiques
+      .replace(/[\u2019\u2018]/g, "'") // Remplacer les guillemets simples typographiques
+      .replace(/[^\x20-\x7E]/g, ""); // Supprimer les caractères non ASCII
+  };
 
   // Lecture et validation du fichier CSV
   const handleFileUpload = (event) => {
@@ -74,14 +76,30 @@ const normalizeString = (str) => {
           ),
         ];
   
-        setAvailableDates(dates);
         setCsvData(rawData);
+        generateAvailableDates(); // Générer les dates disponibles en fonction de la plage de dates
         toast.success("Fichier CSV chargé avec succès !");
       },
       error: (error) => {
         toast.error(`Erreur lors de l'analyse du fichier : ${error.message}`);
       },
     });
+  };
+
+  // Génère les dates disponibles en fonction de la plage de dates
+  const generateAvailableDates = () => {
+    if (!startDate || !endDate) return;
+  
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const dates = [];
+  
+    for (let date = start; date <= end; date.setDate(date.getDate() + 1)) {
+      const formattedDate = date.toISOString().split("T")[0];
+      dates.push(formattedDate);
+    }
+  
+    setAvailableDates(dates);
   };
 
   // Génération du fichier Excel
@@ -104,11 +122,6 @@ const normalizeString = (str) => {
         statutTransaction.toLowerCase() === "accepte" // Inclure uniquement les lignes avec "Accepté"
       );
     });
-  
-    if (filteredData.length === 0) {
-      toast.error("Aucune donnée trouvée avec le statut 'Accepté' pour la date sélectionnée.");
-      return;
-    }
   
     const transformedData = filteredData.map((row) => {
       const values = Object.values(row);
@@ -189,52 +202,69 @@ const normalizeString = (str) => {
   
     const workbook = new ExcelJS.Workbook();
   
-    Object.keys(groupedData).forEach((nature) => {
-      const rows = groupedData[nature];
-      const total = rows.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
-  
-      const worksheet = workbook.addWorksheet(nature);
-      worksheet.mergeCells("A1:F1");
-      worksheet.getCell("A1").value = `Transactions pour la nature "${nature}" - Date : ${selectedDate}`;
-      worksheet.getCell("A1").font = { bold: true, size: 14 };
-      worksheet.getCell("A1").alignment = { horizontal: "center" };
-  
+    if (transformedData.length === 0) {
+      // Générer un fichier Excel vide avec les en-têtes
+      const worksheet = workbook.addWorksheet("Données");
       worksheet.addRow([
         "Date de transaction",
         "Mail",
         "Prénom",
         "Nom",
         "Montant",
-        "Statut de la transaction", // Ajouter le statut comme en-tête
+        "Statut de la transaction",
       ]);
-      const headerRow = worksheet.getRow(2);
-      headerRow.font = { bold: true };
-      headerRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFFF00" },
-      };
+    } else {
+      Object.keys(groupedData).forEach((nature) => {
+        const rows = groupedData[nature];
+        const total = rows.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
   
-      rows.forEach((row) => worksheet.addRow(row));
-      worksheet.addRow(["", "", "", "Total", total.toFixed(2)]);
-      const totalRow = worksheet.getRow(worksheet.rowCount);
-      totalRow.font = { bold: true };
+        const worksheet = workbook.addWorksheet(nature);
+        worksheet.mergeCells("A1:F1");
+        worksheet.getCell("A1").value = `Transactions pour la nature "${nature}" - Date : ${selectedDate}`;
+        worksheet.getCell("A1").font = { bold: true, size: 14 };
+        worksheet.getCell("A1").alignment = { horizontal: "center" };
   
-      worksheet.columns = [
-        { key: "date", width: 30 },
-        { key: "mail", width: 30 },
-        { key: "prenom", width: 20 }, // Ajuster la largeur pour le prénom
-        { key: "nom", width: 20 }, // Ajuster la largeur pour le nom
-        { key: "montant", width: 15 },
-        { key: "statutTransaction", width: 25 }, // Ajuster la largeur pour le statut
-      ];
-    });
+        worksheet.addRow([
+          "Date de transaction",
+          "Mail",
+          "Prénom",
+          "Nom",
+          "Montant",
+          "Statut de la transaction", // Ajouter le statut comme en-tête
+        ]);
+        const headerRow = worksheet.getRow(2);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFF00" },
+        };
+  
+        rows.forEach((row) => worksheet.addRow(row));
+        worksheet.addRow(["", "", "", "Total", total.toFixed(2)]);
+        const totalRow = worksheet.getRow(worksheet.rowCount);
+        totalRow.font = { bold: true };
+  
+        worksheet.columns = [
+          { key: "date", width: 30 },
+          { key: "mail", width: 30 },
+          { key: "prenom", width: 20 }, // Ajuster la largeur pour le prénom
+          { key: "nom", width: 20 }, // Ajuster la largeur pour le nom
+          { key: "montant", width: 15 },
+          { key: "statutTransaction", width: 25 }, // Ajuster la largeur pour le statut
+        ];
+      });
+    }
   
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/octet-stream" });
     saveAs(blob, `Transactions_${selectedDate}.xlsx`);
   
-    toast.success("Fichier Excel généré avec succès !");
+    if (transformedData.length === 0) {
+      toast.info("Aucune donnée trouvée pour la date sélectionnée. Un fichier Excel vide a été généré.");
+    } else {
+      toast.success("Fichier Excel généré avec succès !");
+    }
   };
   
 
@@ -246,6 +276,29 @@ const normalizeString = (str) => {
       <main className="content">
         <div className="card">
           <h2>Importer et traiter vos fichiers</h2>
+          <div className="date-range-selector">
+            <label htmlFor="start-date">Date de début :</label>
+            <input
+              type="date"
+              id="start-date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                generateAvailableDates();
+              }}
+            />
+
+            <label htmlFor="end-date">Date de fin :</label>
+            <input
+              type="date"
+              id="end-date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                generateAvailableDates();
+              }}
+            />
+          </div>
           <input
             type="file"
             accept=".csv"
