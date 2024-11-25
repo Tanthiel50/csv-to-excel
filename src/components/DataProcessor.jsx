@@ -258,7 +258,7 @@ function DataProcessor() {
   
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/octet-stream" });
-    saveAs(blob, `Transactions_${selectedDate}.xlsx`);
+    saveAs(blob, `${selectedDate}.xlsx`);
   
     if (transformedData.length === 0) {
       toast.info("Aucune donnée trouvée pour la date sélectionnée. Un fichier Excel vide a été généré.");
