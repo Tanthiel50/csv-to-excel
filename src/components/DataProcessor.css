@@ -40,7 +40,7 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     padding: 2rem;
-    max-width: 500px;
+    max-width: 600px;
     width: 100%;
     text-align: center;
   }
@@ -80,5 +80,39 @@ body {
     color: #6c757d;
     text-align: center;
     padding: 1rem;
+  }
+
+  .instructions {
+    background: #f9f9f9;
+    padding: 10px 20px;
+    margin-bottom: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  
+  .instructions p {
+    margin: 0;
+  }
+  
+  .instructions strong {
+    color: #51e36e;
+  }
+  
+  .date-range-selector {
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .date-range-selector label {
+    font-weight: bold;
+  }
+  
+  .file-input {
+    margin-top: 15px;
+    display: block;
   }
   

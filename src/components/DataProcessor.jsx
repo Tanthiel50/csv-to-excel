@@ -276,6 +276,13 @@ function DataProcessor() {
       <main className="content">
         <div className="card">
           <h2>Importer et traiter vos fichiers</h2>
+          <div className="instructions">
+          <p>
+            <strong>Veuillez sélectionner une date de début et de fin.</strong> Ces dates devront correspondre à la plage de dates présente sur l'Excel que vous allez importer. <br />
+            Importez l'Excel qui provient de <strong>Paybox</strong>, en format CSV. <br />
+            Vous pourrez ensuite sélectionner une date parmi celles disponibles pour générer un fichier Excel filtré.
+          </p>
+        </div>
           <div className="date-range-selector">
             <label htmlFor="start-date">Date de début :</label>
             <input
